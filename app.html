@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f2a43">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Plant Whisperer</title>
+<style>
+:root{--bg:#f3f7f5;--card:#fff;--fg:#1f2d3d;--muted:#5b6b7b;--line:#dbe4ea;--head:#0f2a43;--green:#2e9e6b;--amber:#d9822b;--blue:#3b82c4;--tint:#eaf4ee;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0a141c;--card:#13232f;--fg:#e6edf3;--muted:#9fb0c0;--line:#243745;--head:#e6edf3;--tint:#17303a}}
+:root[data-theme="dark"]{--bg:#0a141c;--card:#13232f;--fg:#e6edf3;--muted:#9fb0c0;--line:#243745;--head:#e6edf3;--tint:#17303a}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*:before,*:after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+main{max-width:480px;margin:0 auto;padding:16px}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+h1{font-size:1.3rem;margin:0;color:var(--head)}
+.status{font-size:.8rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--amber)}
+.dot.live{background:var(--green)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px}
+.mood{display:flex;align-items:center;gap:14px}
+.face{font-size:52px;line-height:1}
+.pill{display:inline-block;padding:4px 14px;border-radius:999px;color:#fff;font-weight:700;font-size:.9rem}
+.msg{margin-top:12px;background:var(--tint);border-radius:12px;padding:12px 14px;font-size:.95rem;min-height:48px}
+.row{display:flex;justify-content:space-between;align-items:baseline}
+.big{font-size:2.2rem;font-weight:700;color:var(--head);line-height:1.1}
+.sub{font-size:.8rem;color:var(--muted)}
+.bar{height:12px;background:var(--line);border-radius:6px;overflow:hidden;margin:10px 0 4px}
+.bar>div{height:100%;border-radius:6px;transition:width .5s,background .5s}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center}
+.tile b{display:block;font-size:1.25rem;color:var(--head)}
+.tile span{font-size:.75rem;color:var(--muted)}
+h2{font-size:.95rem;margin:0 0 8px;color:var(--head)}
+svg{width:100%;height:110px;display:block}
+.log{max-height:170px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.b{padding:8px 12px;border-radius:12px;font-size:.9rem;max-width:88%}
+.b.me{align-self:flex-end;background:var(--green);color:#fff}
+.b.pl{align-self:flex-start;background:var(--tint)}
+form{display:flex;gap:8px}
+input{flex:1;min-width:0;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font-size:1rem}
+button{padding:11px 16px;border:0;border-radius:10px;background:var(--green);color:#fff;font-weight:700;font-size:1rem}
+</style>
+</head>
+<body>
+<main>
+<header><h1>🌱 Plant Whisperer</h1><div class="status"><span class="dot" id="dot"></span><span id="st">Connecting</span></div></header>
+
+<div class="card">
+  <div class="mood"><div class="face" id="face">🌿</div><div><span class="pill" id="mood">Happy</span><div class="sub" style="margin-top:6px">Plant mood</div></div></div>
+  <div class="msg" id="msg">Waiting for the first reading...</div>
+</div>
+
+<div class="card">
+  <div class="row"><div><div class="big" id="soil">--%</div><div class="sub">Soil moisture</div></div>
+  <div style="text-align:right"><div class="big" id="hrs">--</div><div class="sub">Predicted time until dry</div></div></div>
+  <div class="bar"><div id="fill" style="width:0"></div></div>
+  <div class="sub">Dry below 25%, too wet above 80%</div>
+</div>
+
+<div class="tiles" style="margin-bottom:14px">
+  <div class="tile"><b id="temp">--</b><span>Temperature</span></div>
+  <div class="tile"><b id="hum">--</b><span>Humidity</span></div>
+  <div class="tile"><b id="light">--</b><span>Light</span></div>
+</div>
+
+<div class="card"><h2>Soil moisture history</h2>
+<svg viewBox="0 0 300 100" preserveAspectRatio="none">
+  <line x1="0" x2="300" y1="75" y2="75" stroke="var(--amber)" stroke-dasharray="4 4" stroke-width="1"/>
+  <polyline id="line" fill="none" stroke="var(--green)" stroke-width="2.5" points=""/>
+</svg><div class="sub">Dashed line: 25% dry threshold</div></div>
+
+<div class="card"><h2>Ask your plant</h2>
+<div class="log" id="log"></div>
+<form id="f"><input id="q" placeholder="How are you feeling?" autocomplete="off"><button>Send</button></form></div>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const COL={Thirsty:"var(--amber)",Happy:"var(--green)",Drowning:"var(--blue)"},FACE={Thirsty:"🥀",Happy:"🌿",Drowning:"🌊"};
+let live=false,d=null,series=[],msg="",lastMood=null;
+const moodOf=s=>s<25?"Thirsty":s>80?"Drowning":"Happy";
+const words=(d,m)=>m==="Thirsty"?`Soil is at ${d.soil.toFixed(0)}%. I will be crispy in about ${d.hours.toFixed(0)} hours. Water me, human.`
+  :m==="Drowning"?`${d.soil.toFixed(0)}% is a bit much. Please put the watering can down.`
+  :`All good at ${d.soil.toFixed(0)}%. I will need water in about ${d.hours.toFixed(0)} hours.`;
+
+function render(){
+  if(!d)return;
+  const m=(d.mood||moodOf(d.soil)),cap=m[0].toUpperCase()+m.slice(1);
+  $("mood").textContent=cap;$("mood").style.background=COL[cap];$("face").textContent=FACE[cap];
+  $("msg").textContent=msg||words(d,cap);
+  $("soil").textContent=d.soil.toFixed(0)+"%";
+  $("hrs").textContent=d.hours>=72?"72+ h":d.hours<0.5?"Now":d.hours.toFixed(1)+" h";
+  $("fill").style.width=Math.min(d.soil,100)+"%";$("fill").style.background=COL[cap];
+  $("temp").textContent=(+d.temp).toFixed(1)+"°C";$("hum").textContent=(+d.hum).toFixed(0)+"%";$("light").textContent=d.light.toFixed(0)+"%";
+  const pts=series.slice(-40);
+  $("line").setAttribute("points",pts.map((v,i)=>`${(i/Math.max(pts.length-1,1))*300},${100-Math.min(Math.max(v,0),100)}`).join(" "));
+}
+function setStatus(t,on){$("st").textContent=t;$("dot").className="dot"+(on?" live":"")}
+
+// ---- demo mode (no server): same drying formula the model is trained on ----
+function demoStep(){
+  if(!d)d={soil:65,temp:30,hum:45,light:60,hours:0,mood:"happy"};
+  d.soil-=1.6+Math.random()*0.8;if(d.soil<20)d.soil=92;
+  d.temp=30+(Math.random()-.5);d.hum=45+(Math.random()-.5)*4;d.light=60+(Math.random()-.5)*10;
+  const r=Math.max(.25+.07*(d.temp-20)+.02*d.light-.015*(d.hum-50),.08);
+  d.hours=Math.min(Math.max((d.soil-25)/r,0),72);d.mood=moodOf(d.soil).toLowerCase();
+  const m=moodOf(d.soil);if(m!==lastMood){lastMood=m;msg=words(d,m)}
+  series.push(d.soil);if(series.length>60)series.shift();
+}
+
+async function poll(){
+  try{
+    const r=await fetch("/latest",{cache:"no-store"});
+    if(r.status===503){live=true;setStatus("Connected, waiting for data",true);return}
+    if(!r.ok)throw 0;
+    const j=await r.json();if(typeof j.soil!=="number")throw 0;
+    live=true;d=j;series=j.series||[];msg=j.msg||"";setStatus("Live from server",true);
+  }catch(e){live=false;setStatus("Demo mode (no server)",false);demoStep()}
+  render();
+}
+
+function add(t,me){const b=document.createElement("div");b.className="b "+(me?"me":"pl");b.textContent=t;$("log").appendChild(b);$("log").scrollTop=1e9}
+$("f").addEventListener("submit",async e=>{
+  e.preventDefault();const q=$("q").value.trim();if(!q)return;$("q").value="";add(q,true);
+  if(live){try{const r=await fetch("/ask?q="+encodeURIComponent(q));add(await r.text(),false);return}catch(_){}}
+  add(d?words(d,moodOf(d.soil)):"Give me a moment, I am still waking up.",false);
+});
+add("Ask me anything about how I am doing.",false);
+poll();setInterval(poll,2000);
+</script>
+</body>
+</html>
